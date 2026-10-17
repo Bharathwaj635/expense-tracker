@@ -1,0 +1,660 @@
+/* ---------- Colors (easy to change later) ---------- */
+:root {
+  --primary: #6C5CE7;
+  --primary-2: #a29bfe;
+  --income: #00b894;
+  --expense: #ff7675;
+  --bg: #f4f3ff;
+  --card: #ffffff;
+  --text: #2d3436;
+  --muted: #8e8ea0;
+  --shadow: 0 6px 18px rgba(108, 92, 231, 0.15);
+}
+
+/* Dark mode: follows your phone's setting automatically */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14131f;
+    --card: #1f1e2e;
+    --text: #f1f0ff;
+    --muted: #9a99b3;
+    --shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* ---------- Basics ---------- */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  max-width: 480px;          /* keeps the look of a phone app on a big screen */
+  margin: 0 auto;
+  min-height: 100vh;
+  padding-bottom: 100px;     /* space for the bottom bar */
+}
+
+/* ---------- Top banner ---------- */
+.top {
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  color: #fff;
+  padding: 32px 20px 70px;
+  border-radius: 0 0 32px 32px;
+  text-align: center;
+}
+
+.greeting {
+  opacity: 0.85;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.balance {
+  font-size: 42px;
+  margin: 6px 0;
+}
+
+.month {
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+/* Income / Expense boxes that overlap the banner */
+.summary {
+  display: flex;
+  gap: 12px;
+  margin: 22px -4px -100px;
+}
+
+.summary-box {
+  flex: 1;
+  background: var(--card);
+  color: var(--text);
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary-box span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.summary-box strong {
+  font-size: 18px;
+}
+
+.summary-box:first-child strong { color: var(--income); }
+.summary-box:last-child strong  { color: var(--expense); }
+
+/* ---------- Main area ---------- */
+main {
+  padding: 70px 18px 0;
+}
+
+main h2 {
+  font-size: 18px;
+  margin-bottom: 14px;
+}
+
+ul {
+  list-style: none;
+}
+
+.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 40px 10px;
+  background: var(--card);
+  border-radius: 18px;
+}
+
+/* A single transaction row (used in later steps) */
+.tx {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  padding: 12px 14px;
+  border-radius: 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+}
+
+.tx-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--bg);
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+}
+
+.tx-info { flex: 1; }
+.tx-info b { display: block; font-size: 15px; }
+.tx-info small { color: var(--muted); }
+
+.tx-amount { font-weight: 700; }
+.tx-amount.income  { color: var(--income); }
+.tx-amount.expense { color: var(--expense); }
+
+/* ---------- Round + button ---------- */
+.fab {
+  position: fixed;
+  bottom: 84px;
+  right: calc(50% - 224px);   /* stays inside the phone-width area */
+  width: 58px;
+  height: 58px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  color: #fff;
+  font-size: 32px;
+  line-height: 1;
+  box-shadow: 0 8px 20px rgba(108, 92, 231, 0.5);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.fab:active { transform: scale(0.9); }
+
+/* On real phones, place the button near the right edge */
+@media (max-width: 480px) {
+  .fab { right: 20px; }
+}
+
+/* ---------- Bottom navigation ---------- */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  background: var(--card);
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+  padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+}
+
+.bottom-nav button {
+  flex: 1;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 10px 0;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.bottom-nav button.active {
+  color: var(--primary);
+  background: rgba(108, 92, 231, 0.12);
+  font-weight: 600;
+}
+
+
+/* ---------- Add / Edit form ---------- */
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 19, 31, 0.55);
+  z-index: 50;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.modal.open { display: flex; }
+
+.sheet {
+  background: var(--card);
+  width: 100%;
+  max-width: 480px;
+  max-height: 92vh;
+  overflow-y: auto;
+  border-radius: 28px 28px 0 0;
+  padding: 22px 20px calc(22px + env(safe-area-inset-bottom));
+  animation: slideUp 0.25s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(60px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+.sheet h3 {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.type-toggle {
+  display: flex;
+  background: var(--bg);
+  border-radius: 14px;
+  padding: 4px;
+  margin-bottom: 14px;
+}
+
+.type-btn {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 10px;
+  border-radius: 11px;
+  font-size: 14px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.type-btn.active {
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  color: #fff;
+  font-weight: 600;
+}
+
+.sheet label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 12px 0 6px;
+}
+
+.sheet input,
+.sheet select {
+  width: 100%;
+  padding: 13px 14px;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+  outline: none;
+}
+
+.sheet input:focus,
+.sheet select:focus {
+  border-color: var(--primary-2);
+}
+
+.form-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.form-buttons button,
+.btn-danger {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-main {
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  color: #fff;
+}
+
+.btn-light {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.btn-danger {
+  display: none;
+  width: 100%;
+  margin-top: 10px;
+  background: rgba(255, 118, 117, 0.15);
+  color: var(--expense);
+}
+
+/* ---------- Month switcher ---------- */
+.month-switch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.month-switch span {
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 140px;
+}
+
+.month-switch button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.month-switch button:active {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* ---------- Screens ---------- */
+.screen[hidden] { display: none; }
+
+#chartsScreen h2:not(:first-child) { margin-top: 24px; }
+
+/* ---------- Search and filters ---------- */
+.filters { margin-bottom: 14px; }
+
+.filters input,
+.filters select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 15px;
+  box-shadow: var(--shadow);
+  outline: none;
+}
+
+.filters input:focus,
+.filters select:focus { border-color: var(--primary-2); }
+
+.filter-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.filter-row select { flex: 1; min-width: 0; }
+
+/* ---------- Budget warning banners ---------- */
+.alert {
+  padding: 12px 14px;
+  border-radius: 14px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  border-left: 5px solid;
+}
+
+.alert.warn {
+  background: rgba(253, 203, 110, 0.25);
+  border-color: #fdcb6e;
+}
+
+.alert.over {
+  background: rgba(255, 118, 117, 0.18);
+  border-color: var(--expense);
+}
+
+/* ---------- Charts ---------- */
+.card {
+  background: var(--card);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.chart-box {
+  position: relative;
+  height: 270px;
+}
+
+.empty-note {
+  text-align: center;
+  color: var(--muted);
+  padding: 20px 0;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 13px;
+  margin: -6px 0 12px;
+}
+
+/* ---------- Budgets ---------- */
+.budget {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  padding: 12px 14px;
+  border-radius: 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+.bar {
+  height: 8px;
+  background: var(--bg);
+  border-radius: 6px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.3s;
+}
+
+.bar-fill.ok   { background: var(--income); }
+.bar-fill.warn { background: #fdcb6e; }
+.bar-fill.over { background: var(--expense); }
+
+/* ---------- Theme override (Settings > Theme) ---------- */
+:root[data-theme="dark"] {
+  --bg: #14131f;
+  --card: #1f1e2e;
+  --text: #f1f0ff;
+  --muted: #9a99b3;
+  --shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f4f3ff;
+  --card: #ffffff;
+  --text: #2d3436;
+  --muted: #8e8ea0;
+  --shadow: 0 6px 18px rgba(108, 92, 231, 0.15);
+  color-scheme: light;
+}
+
+/* ---------- Settings screen ---------- */
+.set-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  margin: 22px 4px 8px;
+}
+
+#settingsBody .card p {
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+#settingsBody .card small {
+  display: block;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.seg {
+  display: flex;
+  background: var(--bg);
+  border-radius: 14px;
+  padding: 4px;
+}
+
+.seg button {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 10px 4px;
+  border-radius: 11px;
+  font-size: 14px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.seg button.active {
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  color: #fff;
+  font-weight: 600;
+}
+
+.set-btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 14px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+
+.set-btn.main {
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  color: #fff;
+}
+
+.set-btn.danger {
+  background: rgba(255, 118, 117, 0.15);
+  color: var(--expense);
+}
+
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.cat-row .grow { flex: 1; }
+.cat-row small { margin: 0 !important; }
+
+.cat-del {
+  border: none;
+  background: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+/* ---------- PIN lock screen ---------- */
+.lock {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: linear-gradient(160deg, var(--primary), #4b3fbf);
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+}
+
+html.locked .lock { display: flex; }
+html.locked body { overflow: hidden; }
+
+.lock-box {
+  width: 100%;
+  max-width: 320px;
+  padding: 20px;
+  text-align: center;
+}
+
+.lock-icon { font-size: 42px; }
+
+.lock-box h2 {
+  margin: 8px 0 4px;
+  font-size: 22px;
+}
+
+.lock-msg {
+  min-height: 20px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  opacity: 0.95;
+}
+
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 26px;
+}
+
+.dots span {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  transition: background 0.15s;
+}
+
+.dots span.on { background: #fff; }
+
+.dots.shake { animation: shake 0.35s; }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-10px); }
+  40%, 80% { transform: translateX(10px); }
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.keypad button {
+  height: 62px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 24px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.keypad button:active { background: rgba(255, 255, 255, 0.38); }
+.keypad .blank { visibility: hidden; }
+
+.lock-cancel {
+  margin-top: 22px;
+  border: none;
+  background: none;
+  color: #fff;
+  font-size: 15px;
+  text-decoration: underline;
+  cursor: pointer;
+}

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6C5CE7">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <title>My Expense Tracker</title>
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Runs first: applies your theme and shows the lock screen before anything else -->
+  <script>
+    try {
+      var r = document.documentElement;
+      r.dataset.theme = localStorage.getItem("et_theme") || "auto";
+      if (localStorage.getItem("et_pin")) r.classList.add("locked");
+    } catch (e) {}
+  </script>
+</head>
+<body>
+
+  <!-- Top banner with balance -->
+  <header class="top">
+    <p class="greeting">My Wallet</p>
+    <h1 class="balance" id="balance">₹0</h1>
+    <div class="month-switch">
+      <button id="prevMonth" aria-label="Previous month">‹</button>
+      <span id="monthLabel">This Month</span>
+      <button id="nextMonth" aria-label="Next month">›</button>
+    </div>
+    <div class="summary">
+      <div class="summary-box">
+        <span>Income</span>
+        <strong id="incomeTotal">₹0</strong>
+      </div>
+      <div class="summary-box">
+        <span>Expenses</span>
+        <strong id="expenseTotal">₹0</strong>
+      </div>
+    </div>
+  </header>
+
+  <!-- HOME screen -->
+  <main id="homeScreen" class="screen">
+    <div id="alerts"></div>
+
+    <h2>Transactions</h2>
+
+    <div class="filters">
+      <input type="search" id="search" placeholder="🔍 Search notes or categories">
+      <div class="filter-row">
+        <select id="filterType">
+          <option value="all">All types</option>
+          <option value="expense">Expenses</option>
+          <option value="income">Income</option>
+        </select>
+        <select id="filterCategory">
+          <option value="all">All categories</option>
+        </select>
+      </div>
+    </div>
+
+    <ul id="txList">
+      <li class="empty">No transactions yet. Tap + to add your first one.</li>
+    </ul>
+  </main>
+
+  <!-- CHARTS screen -->
+  <main id="chartsScreen" class="screen" hidden>
+    <h2>Spending by category</h2>
+    <div class="card">
+      <div class="chart-box">
+        <canvas id="pieChart"></canvas>
+      </div>
+      <p class="empty-note" id="pieEmpty" hidden>No expenses in this month yet.</p>
+    </div>
+
+    <h2>Last 6 months</h2>
+    <div class="card">
+      <div class="chart-box">
+        <canvas id="barChart"></canvas>
+      </div>
+    </div>
+
+    <h2>Monthly budgets</h2>
+    <p class="hint">Tap a category to set its monthly limit in ₹.</p>
+    <ul id="budgetList"></ul>
+  </main>
+
+  <!-- SETTINGS screen (filled in by js/settings.js) -->
+  <main id="settingsScreen" class="screen" hidden>
+    <h2>Settings</h2>
+    <div id="settingsBody"></div>
+  </main>
+
+  <!-- Round add button -->
+  <button class="fab" id="addBtn">+</button>
+
+  <!-- Bottom navigation bar -->
+  <nav class="bottom-nav">
+    <button class="active" data-screen="homeScreen">🏠 Home</button>
+    <button data-screen="chartsScreen">📊 Charts</button>
+    <button data-screen="settingsScreen">⚙️ Settings</button>
+  </nav>
+
+  <!-- Add / Edit form (hidden until you tap +) -->
+  <div class="modal" id="modal">
+    <div class="sheet">
+      <h3 id="formTitle">Add Transaction</h3>
+
+      <form id="txForm">
+        <div class="type-toggle">
+          <button type="button" class="type-btn active" data-type="expense">Expense</button>
+          <button type="button" class="type-btn" data-type="income">Income</button>
+        </div>
+
+        <label for="amount">Amount (₹)</label>
+        <input type="number" id="amount" step="0.01" min="0" placeholder="0" inputmode="decimal" required>
+
+        <label for="category">Category</label>
+        <select id="category"></select>
+
+        <label for="date">Date</label>
+        <input type="date" id="date" required>
+
+        <label for="note">Note (optional)</label>
+        <input type="text" id="note" placeholder="e.g. Lunch with friends" maxlength="80">
+
+        <div class="form-buttons">
+          <button type="button" class="btn-light" id="cancelBtn">Cancel</button>
+          <button type="submit" class="btn-main">Save</button>
+        </div>
+        <button type="button" class="btn-danger" id="deleteBtn">Delete</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- PIN lock screen (covers everything when locked) -->
+  <div class="lock" id="lock">
+    <div class="lock-box">
+      <div class="lock-icon">🔒</div>
+      <h2 id="lockTitle">Enter PIN</h2>
+      <p class="lock-msg" id="lockMsg"></p>
+
+      <div class="dots" id="dots">
+        <span></span><span></span><span></span><span></span>
+      </div>
+
+      <div class="keypad" id="keypad">
+        <button data-key="1">1</button>
+        <button data-key="2">2</button>
+        <button data-key="3">3</button>
+        <button data-key="4">4</button>
+        <button data-key="5">5</button>
+        <button data-key="6">6</button>
+        <button data-key="7">7</button>
+        <button data-key="8">8</button>
+        <button data-key="9">9</button>
+        <button class="blank" tabindex="-1" aria-hidden="true"></button>
+        <button data-key="0">0</button>
+        <button data-key="back" aria-label="Delete">⌫</button>
+      </div>
+
+      <button class="lock-cancel" id="lockCancel" hidden>Cancel</button>
+    </div>
+  </div>
+
+  <!-- Scripts (order matters) -->
+  <script src="lib/dexie.min.js"></script>
+  <script src="lib/chart.umd.min.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/settings.js"></script>
+  <script>
+    // Saves the app on your device so it works offline
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("service-worker.js").catch(() => {});
+      });
+    }
+  </script>
+  
+
+</body>
+</html>
