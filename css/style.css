@@ -658,3 +658,378 @@ html.locked body { overflow: hidden; }
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* ---------- Hidden elements stay hidden ---------- */
+[hidden] { display: none !important; }
+
+/* ---------- Account chips in the header ---------- */
+.acct-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 14px 2px 2px;
+  scrollbar-width: none;
+}
+
+.acct-bar::-webkit-scrollbar { display: none; }
+
+/* Centers the chips when they fit, scrolls when they don't */
+.acct-bar::before,
+.acct-bar::after {
+  content: "";
+  margin: auto;
+}
+
+.chip {
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chip.active {
+  background: #fff;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* ---------- Account balance cards on Home ---------- */
+.acct-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.acct-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 6px;
+  border: none;
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+.acct-icon { font-size: 22px; }
+.acct-card small { color: var(--muted); font-size: 12px; }
+.acct-card b { font-size: 13px; word-break: break-word; }
+.acct-card:active { transform: scale(0.96); }
+
+#acctCards h2 { margin-bottom: 10px; }
+
+/* ---------- Transfers and account rows ---------- */
+.tx-amount.transfer { color: var(--muted); }
+.acct-edit { cursor: pointer; }
+
+/* ---------- Recurring: "Due now" cards ---------- */
+#dueCards h2 { margin-bottom: 10px; }
+
+.due-card {
+  background: var(--card);
+  border-radius: 18px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+  border-left: 5px solid var(--primary);
+}
+
+.due-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.due-card .more {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.due-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.due-actions button {
+  flex: 1;
+  padding: 10px 4px;
+  border: none;
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.due-actions button.go {
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  color: #fff;
+}
+
+.due-actions button:active { transform: scale(0.96); }
+
+#dueCards { margin-bottom: 8px; }
+
+/* ---------- Recurring: form and list ---------- */
+.rec-row { cursor: pointer; }
+
+.rec-hint { margin: 14px 0 0; }
+
+.sheet .check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.sheet .check input {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+}
+
+/* ---------- Four buttons in the bottom bar ---------- */
+.bottom-nav button { font-size: 12px; padding: 10px 2px; }
+
+/* ---------- Savings goals ---------- */
+.goal-sum {
+  text-align: center;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.goal-sum small { color: var(--muted); font-size: 12px; }
+.goal-sum b { font-size: 26px; color: var(--primary); }
+
+.goal-card {
+  background: var(--card);
+  border-radius: 18px;
+  padding: 14px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+
+.goal-card.done { border: 2px solid var(--income); }
+
+.goal-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.goal-pct {
+  font-size: 18px;
+  color: var(--primary);
+}
+
+.goal-bar {
+  height: 12px;
+  background: var(--bg);
+  border-radius: 8px;
+  margin: 14px 0 10px;
+  overflow: hidden;
+}
+
+.goal-fill {
+  height: 100%;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-2));
+  transition: width 0.4s;
+}
+
+.goal-card.done .goal-fill {
+  background: linear-gradient(90deg, #00b894, #55efc4);
+}
+
+.goal-note {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.goal-card .due-actions { margin-top: 12px; }
+
+.goal-hint { margin: 12px 0 0; text-align: center; }
+
+.g-hist { margin-top: 12px; font-size: 13px; }
+
+.g-hist summary {
+  cursor: pointer;
+  color: var(--muted);
+  padding: 4px 0;
+}
+
+.g-hist-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid rgba(150, 150, 170, 0.2);
+}
+
+.g-hist-row span { flex: 1; color: var(--muted); }
+
+.g-hist-row button {
+  border: none;
+  background: none;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+#goalsBody .set-btn { margin-top: 4px; }
+
+/* ---------- Spending insights ---------- */
+#homeInsights { margin-bottom: 8px; }
+#homeInsights h2 { margin-bottom: 10px; }
+
+.insight {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--card);
+  border-radius: 16px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+  border-left: 5px solid var(--primary-2);
+}
+
+.insight p {
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.ins-icon {
+  font-size: 22px;
+  line-height: 1.3;
+}
+
+.insight.up   { border-left-color: var(--expense); }
+.insight.down { border-left-color: var(--income); }
+.insight.good { border-left-color: var(--income); }
+.insight.warn { border-left-color: #fdcb6e; }
+.insight.info { border-left-color: var(--primary-2); }
+
+.link-btn {
+  display: block;
+  width: 100%;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 6px 0 14px;
+  cursor: pointer;
+  text-align: center;
+}
+
+#chartInsights { margin-bottom: 8px; }
+
+/* ---------- Security: lockout and notices ---------- */
+.keypad.disabled button {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.lock-msg {
+  min-height: 40px;
+  line-height: 1.4;
+}
+
+.sub-label {
+  margin-top: 18px;
+  margin-bottom: 8px !important;
+}
+
+.warn-note {
+  background: rgba(253, 203, 110, 0.25);
+  border-left: 5px solid #fdcb6e;
+  border-radius: 12px;
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+
+/* ---------- Encryption: lock screen, prompts, busy screen ---------- */
+.lock { z-index: 200; }
+.secret-modal { z-index: 250; }
+
+.pass-form { display: flex; flex-direction: column; gap: 14px; margin-top: 6px; }
+.pass-form.disabled { opacity: 0.35; pointer-events: none; }
+
+.pass-form input {
+  width: 100%;
+  padding: 15px 16px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 17px;
+  outline: none;
+  text-align: center;
+}
+
+.pass-form input::placeholder { color: rgba(255, 255, 255, 0.7); }
+.pass-form input:focus { border-color: #fff; }
+
+.pass-go {
+  padding: 14px;
+  border: none;
+  border-radius: 14px;
+  background: #fff;
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secret-msg {
+  min-height: 20px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--expense);
+}
+
+.busy {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(20, 19, 31, 0.85);
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+}
+
+.busy.open { display: flex; }
+.busy-box p { margin-top: 18px; font-size: 15px; line-height: 1.5; }
+
+.spinner {
+  width: 46px;
+  height: 46px;
+  margin: 0 auto;
+  border: 5px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }

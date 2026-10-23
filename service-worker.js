@@ -1,17 +1,23 @@
 // ---------- Offline support ----------
 // IMPORTANT: change this number every time you edit any app file,
 // so phones download the new version.
-const CACHE = "expense-tracker-v1";
+const CACHE = "expense-tracker-v8";
 
 const FILES = [
   "./",
   "./index.html",
   "./manifest.json",
   "./css/style.css",
+  "./js/boot.js",
+  "./js/crypto.js",
   "./js/db.js",
   "./js/charts.js",
   "./js/app.js",
   "./js/settings.js",
+  "./js/recurring.js",
+  "./js/goals.js",
+  "./js/insights.js",
+  "./js/lock.js",
   "./lib/dexie.min.js",
   "./lib/chart.umd.min.js",
   "./icons/icon-192.png",

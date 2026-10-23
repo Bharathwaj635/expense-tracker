@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#6C5CE7">
   <link rel="manifest" href="manifest.json">
@@ -11,25 +12,20 @@
   <link rel="stylesheet" href="css/style.css">
 
   <!-- Runs first: applies your theme and shows the lock screen before anything else -->
-  <script>
-    try {
-      var r = document.documentElement;
-      r.dataset.theme = localStorage.getItem("et_theme") || "auto";
-      if (localStorage.getItem("et_pin")) r.classList.add("locked");
-    } catch (e) {}
-  </script>
+  <script src="js/boot.js"></script>
 </head>
 <body>
 
   <!-- Top banner with balance -->
   <header class="top">
-    <p class="greeting">My Wallet</p>
+    <p class="greeting" id="greeting">Total balance</p>
     <h1 class="balance" id="balance">₹0</h1>
     <div class="month-switch">
       <button id="prevMonth" aria-label="Previous month">‹</button>
       <span id="monthLabel">This Month</span>
       <button id="nextMonth" aria-label="Next month">›</button>
     </div>
+    <div class="acct-bar" id="acctBar"></div>
     <div class="summary">
       <div class="summary-box">
         <span>Income</span>
@@ -44,17 +40,21 @@
 
   <!-- HOME screen -->
   <main id="homeScreen" class="screen">
+    <div id="dueCards"></div>
+    <div id="homeInsights"></div>
+    <div id="acctCards"></div>
     <div id="alerts"></div>
 
     <h2>Transactions</h2>
 
     <div class="filters">
-      <input type="search" id="search" placeholder="🔍 Search notes or categories">
+      <input type="search" id="search" placeholder="🔍 Search notes, categories, accounts">
       <div class="filter-row">
         <select id="filterType">
           <option value="all">All types</option>
           <option value="expense">Expenses</option>
           <option value="income">Income</option>
+          <option value="transfer">Transfers</option>
         </select>
         <select id="filterCategory">
           <option value="all">All categories</option>
@@ -69,6 +69,10 @@
 
   <!-- CHARTS screen -->
   <main id="chartsScreen" class="screen" hidden>
+    <p class="hint" id="chartScope"></p>
+    <h2>💡 Insights</h2>
+    <div id="chartInsights"></div>
+
     <h2>Spending by category</h2>
     <div class="card">
       <div class="chart-box">
@@ -85,8 +89,14 @@
     </div>
 
     <h2>Monthly budgets</h2>
-    <p class="hint">Tap a category to set its monthly limit in ₹.</p>
+    <p class="hint">Budgets count spending from all accounts. Tap a category to set its monthly limit in ₹.</p>
     <ul id="budgetList"></ul>
+  </main>
+
+  <!-- GOALS screen (filled in by js/goals.js) -->
+  <main id="goalsScreen" class="screen" hidden>
+    <h2>Savings goals</h2>
+    <div id="goalsBody"></div>
   </main>
 
   <!-- SETTINGS screen (filled in by js/settings.js) -->
@@ -102,6 +112,7 @@
   <nav class="bottom-nav">
     <button class="active" data-screen="homeScreen">🏠 Home</button>
     <button data-screen="chartsScreen">📊 Charts</button>
+    <button data-screen="goalsScreen">🎯 Goals</button>
     <button data-screen="settingsScreen">⚙️ Settings</button>
   </nav>
 
@@ -114,13 +125,28 @@
         <div class="type-toggle">
           <button type="button" class="type-btn active" data-type="expense">Expense</button>
           <button type="button" class="type-btn" data-type="income">Income</button>
+          <button type="button" class="type-btn" data-type="transfer">Transfer</button>
         </div>
 
         <label for="amount">Amount (₹)</label>
         <input type="number" id="amount" step="0.01" min="0" placeholder="0" inputmode="decimal" required>
 
-        <label for="category">Category</label>
-        <select id="category"></select>
+        <div id="acctRow">
+          <label for="account">Account</label>
+          <select id="account"></select>
+        </div>
+
+        <div id="catRow">
+          <label for="category">Category</label>
+          <select id="category"></select>
+        </div>
+
+        <div id="transferRow" hidden>
+          <label for="fromAcct">From account</label>
+          <select id="fromAcct"></select>
+          <label for="toAcct">To account</label>
+          <select id="toAcct"></select>
+        </div>
 
         <label for="date">Date</label>
         <input type="date" id="date" required>
@@ -137,15 +163,150 @@
     </div>
   </div>
 
-  <!-- PIN lock screen (covers everything when locked) -->
+  <!-- Savings goal form -->
+  <div class="modal" id="goalModal">
+    <div class="sheet">
+      <h3 id="goalTitle">New savings goal</h3>
+
+      <form id="goalForm">
+        <label for="gName">Goal name (for example Smartphone)</label>
+        <input type="text" id="gName" placeholder="e.g. Smartphone" maxlength="40" required>
+
+        <label for="gIcon">Emoji</label>
+        <input type="text" id="gIcon" value="🎯" maxlength="8">
+
+        <label for="gTarget">Target amount (₹)</label>
+        <input type="number" id="gTarget" step="0.01" min="0" placeholder="20000" inputmode="decimal" required>
+
+        <label for="gStart">Already saved (₹, optional)</label>
+        <input type="number" id="gStart" step="0.01" min="0" placeholder="0" inputmode="decimal">
+
+        <label for="gDate">Target date (optional)</label>
+        <input type="date" id="gDate">
+
+        <div class="form-buttons">
+          <button type="button" class="btn-light" id="gCancel">Cancel</button>
+          <button type="submit" class="btn-main">Save</button>
+        </div>
+        <button type="button" class="btn-danger" id="gDelete">Delete goal</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add money / take out form -->
+  <div class="modal" id="gmModal">
+    <div class="sheet">
+      <h3 id="gmTitle">Add money</h3>
+      <p class="hint" id="gmHint"></p>
+
+      <form id="gmForm">
+        <label for="gmAmount">Amount (₹)</label>
+        <input type="number" id="gmAmount" step="0.01" min="0" placeholder="0" inputmode="decimal" required>
+
+        <label for="gmAccount" id="gmAccountLabel">From account</label>
+        <select id="gmAccount"></select>
+
+        <label for="gmDate">Date</label>
+        <input type="date" id="gmDate" required>
+
+        <div class="form-buttons">
+          <button type="button" class="btn-light" id="gmCancel">Cancel</button>
+          <button type="submit" class="btn-main">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Recurring entry form (hidden until opened from Settings) -->
+  <div class="modal" id="recModal">
+    <div class="sheet">
+      <h3 id="recTitle">New recurring entry</h3>
+
+      <form id="recForm">
+        <label for="recName">Name (for example Rent)</label>
+        <input type="text" id="recName" placeholder="e.g. Rent" maxlength="80" required>
+
+        <label for="recType">Type</label>
+        <select id="recType">
+          <option value="expense">Expense</option>
+          <option value="income">Income</option>
+        </select>
+
+        <label for="recAmount">Amount (₹)</label>
+        <input type="number" id="recAmount" step="0.01" min="0" placeholder="0" inputmode="decimal" required>
+
+        <label for="recCategory">Category</label>
+        <select id="recCategory"></select>
+
+        <label for="recAccount">Account</label>
+        <select id="recAccount"></select>
+
+        <label for="recFreq">Repeats</label>
+        <select id="recFreq">
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly" selected>Monthly</option>
+          <option value="yearly">Yearly</option>
+        </select>
+
+        <label for="recDate">Next due date</label>
+        <input type="date" id="recDate" required>
+
+        <label class="check"><input type="checkbox" id="recActive" checked> Active (untick to pause)</label>
+
+        <p class="hint rec-hint">Nothing is added automatically. If you pick a past date, the app asks about each missed date, one at a time.</p>
+
+        <div class="form-buttons">
+          <button type="button" class="btn-light" id="recCancel">Cancel</button>
+          <button type="submit" class="btn-main">Save</button>
+        </div>
+        <button type="button" class="btn-danger" id="recDelete">Delete</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Passphrase prompt (used for new passphrases and backups) -->
+  <div class="modal secret-modal" id="secretModal">
+    <div class="sheet">
+      <h3 id="secretTitle">Passphrase</h3>
+      <p class="hint" id="secretHint"></p>
+
+      <form id="secretForm" autocomplete="off">
+        <label for="secret1">Passphrase</label>
+        <input type="password" id="secret1" autocomplete="off" autocapitalize="none" spellcheck="false">
+
+        <div id="secret2Row" hidden>
+          <label for="secret2">Type it again</label>
+          <input type="password" id="secret2" autocomplete="off" autocapitalize="none" spellcheck="false">
+        </div>
+
+        <p class="secret-msg" id="secretMsg"></p>
+
+        <div class="form-buttons">
+          <button type="button" class="btn-light" id="secretCancel">Cancel</button>
+          <button type="submit" class="btn-main">OK</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Busy screen (shown while encrypting) -->
+  <div class="busy" id="busy">
+    <div class="busy-box">
+      <div class="spinner"></div>
+      <p id="busyMsg">Working…</p>
+    </div>
+  </div>
+
+  <!-- Lock screen (covers everything when locked) -->
   <div class="lock" id="lock">
     <div class="lock-box">
       <div class="lock-icon">🔒</div>
-      <h2 id="lockTitle">Enter PIN</h2>
+      <h2 id="lockTitle">Enter your code</h2>
       <p class="lock-msg" id="lockMsg"></p>
 
       <div class="dots" id="dots">
-        <span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span><span></span>
       </div>
 
       <div class="keypad" id="keypad">
@@ -163,6 +324,11 @@
         <button data-key="back" aria-label="Delete">⌫</button>
       </div>
 
+      <form class="pass-form" id="passForm" hidden autocomplete="off">
+        <input type="password" id="passInput" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Passphrase">
+        <button type="submit" class="pass-go">Unlock</button>
+      </form>
+
       <button class="lock-cancel" id="lockCancel" hidden>Cancel</button>
     </div>
   </div>
@@ -170,19 +336,15 @@
   <!-- Scripts (order matters) -->
   <script src="lib/dexie.min.js"></script>
   <script src="lib/chart.umd.min.js"></script>
+  <script src="js/crypto.js"></script>
   <script src="js/db.js"></script>
   <script src="js/charts.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/recurring.js"></script>
+  <script src="js/goals.js"></script>
+  <script src="js/insights.js"></script>
+  <script src="js/lock.js"></script>
   <script src="js/settings.js"></script>
-  <script>
-    // Saves the app on your device so it works offline
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("service-worker.js").catch(() => {});
-      });
-    }
-  </script>
-  
 
 </body>
 </html>

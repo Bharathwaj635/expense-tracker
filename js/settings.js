@@ -1,19 +1,14 @@
-// ---------- Settings: theme, PIN lock, backup, categories ----------
+// ---------- Settings: theme, security, backup, accounts, categories ----------
 (function () {
-  const root = document.documentElement;
-  const PIN_KEY = "et_pin";
   const THEME_KEY = "et_theme";
   const BACKUP_KEY = "et_last_backup";
+  const root = document.documentElement;
 
-  // ----- tiny helpers for saving small settings on this device -----
   function readKey(k) {
     try { return localStorage.getItem(k); } catch (e) { return null; }
   }
   function saveKey(k, v) {
     try { localStorage.setItem(k, v); } catch (e) {}
-  }
-  function removeKey(k) {
-    try { localStorage.removeItem(k); } catch (e) {}
   }
 
   // =====================================================
@@ -23,150 +18,6 @@
     root.dataset.theme = t;
     saveKey(THEME_KEY, t);
   }
-
-  // =====================================================
-  //  PIN LOCK
-  // =====================================================
-  let pinMode = "unlock";   // unlock | verify | new | confirm
-  let entered = "";
-  let firstPin = "";
-  let afterVerify = null;
-  let busy = false;
-
-  function getPin() {
-    try {
-      const p = JSON.parse(readKey(PIN_KEY));
-      return p && p.salt && p.hash ? p : null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function makeSalt() {
-    const a = new Uint8Array(8);
-    crypto.getRandomValues(a);
-    return Array.from(a, (b) => b.toString(16).padStart(2, "0")).join("");
-  }
-
-  async function hashPin(pin, salt) {
-    const data = new TextEncoder().encode(salt + ":" + pin);
-    const buf = await crypto.subtle.digest("SHA-256", data);
-    return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
-  }
-
-  function drawDots() {
-    [...$("dots").children].forEach((d, i) => {
-      d.classList.toggle("on", i < entered.length);
-    });
-  }
-
-  function setMsg(text) {
-    $("lockMsg").textContent = text || "";
-  }
-
-  function openPad(mode, title, cancellable) {
-    pinMode = mode;
-    entered = "";
-    busy = false;
-    $("lockTitle").textContent = title;
-    $("lockCancel").hidden = !cancellable;
-    setMsg("");
-    drawDots();
-    root.classList.add("locked");
-  }
-
-  function closePad() {
-    root.classList.remove("locked");
-    entered = "";
-    firstPin = "";
-    afterVerify = null;
-    busy = false;
-    drawDots();
-  }
-
-  function wrongPin(message) {
-    setMsg(message);
-    entered = "";
-    const dots = $("dots");
-    dots.classList.remove("shake");
-    void dots.offsetWidth; // restart the animation
-    dots.classList.add("shake");
-    drawDots();
-    busy = false;
-  }
-
-  async function submitPin() {
-    const pin = entered;
-    busy = true;
-
-    try {
-      if (pinMode === "unlock" || pinMode === "verify") {
-        const saved = getPin();
-        if (!saved) { closePad(); return; }
-
-        const ok = (await hashPin(pin, saved.salt)) === saved.hash;
-        if (!ok) { wrongPin("Wrong PIN, try again"); return; }
-
-        if (pinMode === "unlock") {
-          closePad();
-        } else {
-          const next = afterVerify;
-          afterVerify = null;
-          busy = false;
-          if (next) next();
-        }
-      } else if (pinMode === "new") {
-        firstPin = pin;
-        openPad("confirm", "Confirm your PIN", true);
-      } else if (pinMode === "confirm") {
-        if (pin !== firstPin) {
-          openPad("new", "Create a 4-digit PIN", true);
-          setMsg("PINs did not match. Start again.");
-          return;
-        }
-        const salt = makeSalt();
-        saveKey(PIN_KEY, JSON.stringify({ salt: salt, hash: await hashPin(pin, salt) }));
-        closePad();
-        renderSettings();
-        alert("PIN lock is on. The app will ask for it every time you open it.");
-      }
-    } catch (err) {
-      busy = false;
-      closePad();
-      alert("PIN lock could not run here. It needs a secure page (https or localhost).");
-    }
-  }
-
-  function pressKey(k) {
-    if (busy) return;
-    if (k === "back") {
-      entered = entered.slice(0, -1);
-    } else if (entered.length < 4) {
-      entered += k;
-    }
-    drawDots();
-    if (entered.length === 4) setTimeout(submitPin, 120);
-  }
-
-  $("keypad").addEventListener("click", (e) => {
-    const b = e.target.closest("button[data-key]");
-    if (b) pressKey(b.dataset.key);
-  });
-
-  $("lockCancel").addEventListener("click", closePad);
-
-  // Keyboard support on a computer
-  document.addEventListener("keydown", (e) => {
-    if (!root.classList.contains("locked")) return;
-    if (/^\d$/.test(e.key)) pressKey(e.key);
-    else if (e.key === "Backspace") pressKey("back");
-    else if (e.key === "Escape" && !$("lockCancel").hidden) closePad();
-  });
-
-  // Lock again whenever you leave the app and come back
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden && getPin()) openPad("unlock", "Enter PIN", false);
-  });
 
   // =====================================================
   //  BACKUP AND RESTORE
@@ -183,18 +34,52 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  async function exportJSON() {
-    const data = {
+  async function backupObject() {
+    return {
       app: "expense-tracker",
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       transactions: await db.transactions.toArray(),
       categories: await db.categories.toArray(),
-      budgets: await db.budgets.toArray()
+      budgets: await db.budgets.toArray(),
+      accounts: await db.accounts.toArray(),
+      transfers: await db.transfers.toArray(),
+      recurring: await db.recurring.toArray(),
+      goals: await db.goals.toArray()
     };
+  }
+
+  // Readable backup (anyone with the file can read it)
+  async function exportPlain() {
+    if (!confirm(
+      "This backup file is NOT encrypted. Anyone who gets the file can read all your entries.\n\n" +
+      "Tip: use \"Export encrypted backup\" instead.\n\nContinue?"
+    )) return;
+
     download(
       "expense-backup-" + todayString() + ".json",
-      JSON.stringify(data, null, 2),
+      JSON.stringify(await backupObject(), null, 2),
+      "application/json"
+    );
+    saveKey(BACKUP_KEY, todayString());
+    renderSettings();
+  }
+
+  // Encrypted backup (needs its own passphrase to open)
+  async function exportEncrypted() {
+    const pass = await Lock.askSecret({
+      title: "Backup passphrase",
+      hint: "You will need this passphrase to restore the backup. It cannot be recovered, so keep it safe. It can be different from your app code.",
+      confirm: true,
+      min: 8,
+      check: (v) => Vault.checkCode(v, "pass")
+    });
+    if (!pass) return;
+
+    const wrapped = await Vault.encryptBackup(JSON.stringify(await backupObject()), pass);
+    download(
+      "expense-backup-" + todayString() + "-encrypted.json",
+      JSON.stringify(wrapped),
       "application/json"
     );
     saveKey(BACKUP_KEY, todayString());
@@ -208,16 +93,37 @@
   }
 
   async function exportCSV() {
+    if (!confirm("The CSV file is NOT encrypted. Anyone who gets the file can read it.\n\nContinue?")) return;
+
     const list = await getAllTransactions();
-    const rows = ["Date,Type,Category,Amount (INR),Note"];
+    const names = {};
+    (await db.accounts.toArray()).forEach((a) => { names[a.id] = a.name; });
+
+    const rows = ["Date,Type,Category,Amount (INR),Account,Note"];
     list.forEach((t) => {
-      rows.push([t.date, t.type, t.category, t.amount, t.note].map(csvCell).join(","));
+      rows.push(
+        [t.date, t.type, t.category, t.amount, names[t.accountId] || "Cash", t.note]
+          .map(csvCell)
+          .join(",")
+      );
     });
     download(
       "expenses-" + todayString() + ".csv",
       "\uFEFF" + rows.join("\r\n"),
       "text/csv;charset=utf-8"
     );
+  }
+
+  // Keeps only plain objects from a list in a backup file
+  function plainList(arr) {
+    return (Array.isArray(arr) ? arr : [])
+      .filter((o) => o && typeof o === "object" && !Array.isArray(o))
+      .slice(0, 20000)
+      .map((o) => {
+        const copy = JSON.parse(JSON.stringify(o));
+        if (!(Number.isInteger(copy.id) && copy.id > 0)) delete copy.id;
+        return copy;
+      });
   }
 
   async function importBackup(file) {
@@ -229,11 +135,42 @@
       return;
     }
 
+    // Encrypted backups need their passphrase first
+    if (data && data.encrypted === true) {
+      const pass = await Lock.askSecret({
+        title: "Backup passphrase",
+        hint: "Enter the passphrase you chose when you made this backup."
+      });
+      if (!pass) return;
+      try {
+        data = JSON.parse(await Vault.decryptBackup(data, pass));
+      } catch (e) {
+        alert("Wrong passphrase, or the file is damaged.");
+        return;
+      }
+    }
+
     if (!data || data.app !== "expense-tracker" || !Array.isArray(data.transactions)) {
       alert("That file is not an Expense Tracker backup.");
       return;
     }
 
+    // ----- accounts (old Version 1 backups have none, so use the defaults) -----
+    let accts = (Array.isArray(data.accounts) ? data.accounts : [])
+      .filter((a) => a && typeof a.id === "string" && /^[a-z0-9_-]{1,30}$/.test(a.id) && a.name)
+      .map((a, i) => ({
+        id: a.id,
+        name: String(a.name).slice(0, 30),
+        icon: String(a.icon || "💰").slice(0, 8),
+        opening: Number(a.opening) || 0,
+        order: Number(a.order) || i + 1
+      }));
+    if (accts.length === 0) accts = DEFAULT_ACCOUNTS.map((a) => ({ ...a }));
+
+    const accountIds = new Set(accts.map((a) => a.id));
+    const fallbackId = accountIds.has("cash") ? "cash" : accts[0].id;
+
+    // ----- transactions -----
     const txs = data.transactions
       .filter(
         (t) =>
@@ -248,9 +185,11 @@
         amount: Number(t.amount),
         category: t.category,
         date: t.date,
-        note: String(t.note || "")
+        note: String(t.note || ""),
+        accountId: accountIds.has(t.accountId) ? t.accountId : fallbackId
       }));
 
+    // ----- categories and budgets -----
     const cats = (Array.isArray(data.categories) ? data.categories : [])
       .filter((c) => c && c.name && (c.type === "expense" || c.type === "income"))
       .map((c) => ({ type: c.type, name: String(c.name), icon: String(c.icon || "🏷️") }));
@@ -259,35 +198,181 @@
       .filter((b) => b && b.category && Number(b.amount) > 0)
       .map((b) => ({ category: String(b.category), amount: Number(b.amount) }));
 
+    // ----- transfers between accounts -----
+    const transfers = (Array.isArray(data.transfers) ? data.transfers : [])
+      .filter(
+        (t) =>
+          t &&
+          accountIds.has(t.fromId) &&
+          accountIds.has(t.toId) &&
+          t.fromId !== t.toId &&
+          Number(t.amount) > 0 &&
+          /^\d{4}-\d{2}-\d{2}$/.test(t.date)
+      )
+      .map((t) => ({
+        date: t.date,
+        fromId: t.fromId,
+        toId: t.toId,
+        amount: Number(t.amount),
+        note: String(t.note || "")
+      }));
+
+    // ----- recurring entries and goals -----
+    const recurring = plainList(data.recurring);
+    const goals = plainList(data.goals);
+
     const ok = confirm(
       "This will REPLACE everything in the app with the backup:\n\n" +
         txs.length + " transactions, " + cats.length + " custom categories, " +
-        buds.length + " budgets.\n\nContinue?"
+        buds.length + " budgets, " + accts.length + " accounts, " +
+        transfers.length + " transfers.\n\nContinue?"
     );
     if (!ok) return;
 
-    await db.transaction("rw", db.transactions, db.categories, db.budgets, async () => {
-      await db.transactions.clear();
-      await db.categories.clear();
-      await db.budgets.clear();
-      await db.transactions.bulkAdd(txs);
-      await db.categories.bulkAdd(cats);
-      await db.budgets.bulkPut(buds);
-    });
+    await db.transaction(
+      "rw",
+      db.transactions, db.categories, db.budgets,
+      db.accounts, db.transfers, db.recurring, db.goals,
+      async () => {
+        await db.transactions.clear();
+        await db.categories.clear();
+        await db.budgets.clear();
+        await db.accounts.clear();
+        await db.transfers.clear();
+        await db.recurring.clear();
+        await db.goals.clear();
+
+        await db.accounts.bulkAdd(accts);
+        await db.transactions.bulkAdd(txs);
+        await db.categories.bulkAdd(cats);
+        await db.budgets.bulkPut(buds);
+        await db.transfers.bulkAdd(transfers);
+        await db.recurring.bulkAdd(recurring);
+        await db.goals.bulkAdd(goals);
+      }
+    );
 
     customCats = await getCustomCategories();
     fillFilterCategories();
     await refresh();
     renderSettings();
+    if (window.reloadRules) await window.reloadRules();
     alert("Backup restored.");
+  }
+
+  // =====================================================
+  //  ACCOUNTS (rename, emoji, opening balance)
+  // =====================================================
+  function fillAccountPreview() {
+    const box = document.getElementById("acctPreview");
+    if (!box) return;
+
+    const upTo = viewMonth + "-31";
+    box.innerHTML =
+      accounts
+        .map((a) => {
+          const bal = balanceFor([a.id], upTo);
+          return `
+        <div class="cat-row acct-edit" data-act="editacct" data-id="${escapeHtml(a.id)}">
+          <span class="tx-icon">${escapeHtml(a.icon)}</span>
+          <span class="grow"><b>${escapeHtml(a.name)}</b><br><small>Balance ${formatINR(bal)} • Opening ${formatINR(Number(a.opening) || 0)}</small></span>
+          <span>✏️</span>
+        </div>`;
+        })
+        .join("") +
+      "<small>Tap an account to rename it, change its emoji, or set its opening balance (money you already had in it before you started tracking).</small>";
+  }
+
+  async function editAccount(id) {
+    const a = accounts.find((x) => x.id === id);
+    if (!a) return;
+
+    const name = prompt("Account name:", a.name);
+    if (name === null) return;
+
+    const icon = prompt("One emoji for this account:", a.icon);
+    if (icon === null) return;
+
+    const op = prompt(
+      "Opening balance in ₹\n(money already in this account before you started tracking):",
+      a.opening || 0
+    );
+    if (op === null) return;
+
+    const opening = Number(String(op).replace(/,/g, "").trim() || 0);
+    if (!name.trim() || isNaN(opening)) {
+      alert("Please enter a valid name and number.");
+      return;
+    }
+
+    await updateAccount(id, {
+      name: name.trim().slice(0, 30),
+      icon: (icon.trim() || a.icon).slice(0, 8),
+      opening: opening
+    });
+
+    await refresh();
+    renderSettings();
   }
 
   // =====================================================
   //  SETTINGS SCREEN
   // =====================================================
+  function securityHtml() {
+    const s = Lock.state();
+    const auto = String(Lock.getAutoLock());
+    const autoBtn = (value, label) =>
+      `<button data-act="autolock" data-value="${value}" class="${auto === value ? "active" : ""}">${label}</button>`;
+
+    const autoBlock = `
+        <p class="sub-label">Auto-lock</p>
+        <div class="seg">
+          ${autoBtn("0", "Right away")}
+          ${autoBtn("1", "1 min")}
+          ${autoBtn("5", "5 min")}
+          ${autoBtn("15", "15 min")}
+        </div>
+        <small>Right away locks the app as soon as you leave it. The other choices lock it after you have been away or untouched for that long.</small>`;
+
+    if (s.kind === "vault") {
+      return `
+        <p>🔐 Encryption is <b>ON</b> (AES-256)</p>
+        <p>Your code: <b>${s.type === "digits" ? s.len + " digits" : "passphrase"}</b></p>
+        ${
+          s.type === "digits"
+            ? '<p class="warn-note">A 6-digit code can be guessed quickly by someone who copies your stored data. A passphrase of four or more random words is far stronger. Tap "Switch to a passphrase".</p>'
+            : ""
+        }
+        <button class="set-btn main" data-act="locknow">🔒 Lock now</button>
+        ${
+          s.type === "digits"
+            ? `<button class="set-btn" data-act="change" data-type="pass">Switch to a passphrase (stronger)</button>
+               <button class="set-btn" data-act="change" data-type="digits">Change 6-digit code</button>`
+            : `<button class="set-btn" data-act="change" data-type="pass">Change passphrase</button>
+               <button class="set-btn" data-act="change" data-type="digits">Switch to a 6-digit code</button>`
+        }
+        ${autoBlock}`;
+    }
+
+    if (s.kind === "legacy") {
+      return `
+        <p>PIN lock is <b>ON</b> (${s.len} digits)</p>
+        <p class="warn-note">This PIN only covers the screen. Your data is <b>not encrypted</b>. Tap one of the encryption buttons below to protect it properly.</p>
+        <button class="set-btn main" data-act="setup" data-type="pass">🔐 Encrypt with a passphrase (strongest)</button>
+        <button class="set-btn" data-act="setup" data-type="digits">🔐 Encrypt with a 6-digit code</button>
+        <button class="set-btn" data-act="locknow">🔒 Lock now</button>
+        <button class="set-btn danger" data-act="removepin">Remove PIN</button>
+        ${autoBlock}`;
+    }
+
+    return `
+        <p>Lock and encryption are <b>OFF</b>. Your data is stored readable on this device.</p>
+        <button class="set-btn main" data-act="setup" data-type="pass">🔐 Encrypt with a passphrase (strongest)</button>
+        <button class="set-btn" data-act="setup" data-type="digits">🔐 Encrypt with a 6-digit code</button>`;
+  }
+
   function renderSettings() {
     const theme = readKey(THEME_KEY) || "auto";
-    const hasPin = !!getPin();
     const last = readKey(BACKUP_KEY);
 
     const themeBtn = (value, label) =>
@@ -319,22 +404,23 @@
 
       <h3 class="set-title">Security</h3>
       <div class="card">
-        <p>PIN lock is <b>${hasPin ? "ON" : "OFF"}</b></p>
-        ${
-          hasPin
-            ? `<button class="set-btn" data-act="changepin">Change PIN</button>
-               <button class="set-btn danger" data-act="removepin">Remove PIN</button>`
-            : `<button class="set-btn main" data-act="setpin">Set a 4-digit PIN</button>`
-        }
-        <small>The PIN keeps others out of the app. If you forget it, clearing this site's data in Chrome removes it, along with all your entries, so keep a backup.</small>
+        ${securityHtml()}
+        <small>After 3 wrong tries the keypad locks for a short time, and the wait grows with more wrong tries. <b>If you forget your code, your data cannot be recovered.</b> Keep an encrypted backup and remember its passphrase.</small>
       </div>
+
+      <h3 class="set-title">Accounts</h3>
+      <div class="card" id="acctPreview"><p>Loading…</p></div>
+
+      <h3 class="set-title">Recurring entries</h3>
+      <div class="card" id="recurringCard"></div>
 
       <h3 class="set-title">Backup</h3>
       <div class="card">
         <p>${allTx.length} transactions saved on this device.</p>
-        <button class="set-btn main" data-act="exportjson">📤 Export backup (JSON)</button>
+        <button class="set-btn main" data-act="exportenc">🔐 Export encrypted backup</button>
+        <button class="set-btn" data-act="exportjson">📤 Export readable backup (JSON)</button>
         <button class="set-btn" data-act="exportcsv">📄 Export for Excel (CSV)</button>
-        <label class="set-btn" for="importFile">📥 Restore from backup</label>
+        <label class="set-btn" for="importFile" id="importLabel">📥 Restore from backup</label>
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <small>${last ? "Last backup: " + prettyDate(last) : "No backup yet. Make one now!"}</small>
       </div>
@@ -347,12 +433,18 @@
         <p>🔒 All data stays on this device. No internet, no accounts, no tracking.</p>
       </div>
     `;
+
+    fillAccountPreview();
+    if (window.fillRecurringCard) window.fillRecurringCard();
   }
 
-  // Make renderSettings available to app.js
+  // Make renderSettings available to the other files
   window.renderSettings = renderSettings;
 
   $("settingsBody").addEventListener("click", async (e) => {
+    // The phone's file picker can hide the app for a moment: do not lock under it
+    if (e.target.closest("#importLabel")) Lock.pause(180);
+
     const el = e.target.closest("[data-act]");
     if (!el) return;
     const act = el.dataset.act;
@@ -360,23 +452,25 @@
     if (act === "theme") {
       applyTheme(el.dataset.value);
       renderSettings();
-    } else if (act === "setpin") {
-      openPad("new", "Create a 4-digit PIN", true);
-    } else if (act === "changepin") {
-      afterVerify = () => openPad("new", "Enter your new PIN", true);
-      openPad("verify", "Enter current PIN", true);
+    } else if (act === "setup") {
+      Lock.setup(el.dataset.type);
+    } else if (act === "change") {
+      Lock.change(el.dataset.type);
     } else if (act === "removepin") {
-      afterVerify = () => {
-        removeKey(PIN_KEY);
-        closePad();
-        renderSettings();
-        alert("PIN lock removed.");
-      };
-      openPad("verify", "Enter PIN to remove lock", true);
+      Lock.removeLegacy();
+    } else if (act === "locknow") {
+      Lock.lockNow();
+    } else if (act === "autolock") {
+      Lock.setAutoLock(el.dataset.value);
+      renderSettings();
+    } else if (act === "exportenc") {
+      await exportEncrypted();
     } else if (act === "exportjson") {
-      await exportJSON();
+      await exportPlain();
     } else if (act === "exportcsv") {
       await exportCSV();
+    } else if (act === "editacct") {
+      await editAccount(el.dataset.id);
     } else if (act === "delcat") {
       const c = customCats.find((x) => x.id === Number(el.dataset.id));
       if (!c) return;
@@ -399,8 +493,5 @@
     }
   });
 
-  // ----- on start -----
-  // If the lock was switched on by the page header but no valid PIN exists, unlock.
-  if (!getPin()) root.classList.remove("locked");
   renderSettings();
 })();
